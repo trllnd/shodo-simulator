@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Simulateur</title>
+    <style>
+      :root {
+        --color-primary: #eb214c;
+        --color-success: #2ecc40;
+        --color-black: #111111;
+        --margin: 16px;
+      }
+
+      body {
+        margin: auto;
+        max-width: 80ch;
+        font-family: monospace;
+        color: var(--color-black);
+        line-height: calc(
+          1rem + 2px + 2px + 2px
+            /* 1char's height + bottom border + top border + some space */
+        );
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      p {
+        margin: var(--margin);
+      }
+
+      input {
+        font-family: inherit;
+        font-size: inherit;
+        transition: width 0.1s ease-in;
+      }
+
+      header {
+        text-align: center;
+        padding: var(--margin);
+      }
+
+      main {
+        margin: var(--margin);
+      }
+
+      .number {
+        display: inline-block;
+      }
+
+      .number input {
+        padding: 0;
+        border: 0px none;
+        text-align: center;
+        outline: none;
+        box-sizing: border-box;
+        border-bottom: 2px solid var(--color-primary);
+      }
+      .number input.pristine {
+        border-bottom: 2px dashed var(--color-primary);
+      }
+      .number input:focus {
+        border-top: 1px dashed var(--color-primary);
+        border-left: 1px dashed var(--color-primary);
+        border-right: 1px dashed var(--color-primary);
+        /*border-bottom: none;*/
+      }
+
+      .result {
+        margin: var(--margin);
+        display: flex;
+        justify-content: center;
+      }
+      .result ul {
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header>Simulateur SHODO</header>
+    <main>
+      <section class="form">
+        <p>
+          Je suis un developpeur avec
+          <span class="experience number">
+            <input
+              class="pristine"
+              type="tel"
+              placeholder="10"
+              autofocus
+              maxlength="2"
+              style="min-width:3ch;width:3ch"
+            />
+          </span>
+          ans d'expérience et un salaire de
+          <span class="salary number">
+            <input
+              class="pristine"
+              type="tel"
+              placeholder="????"
+              maxlength="6"
+              style="min-width:5ch;width:5ch"
+            />
+          </span>
+          € brut par an.
+        </p>
+        <p>
+          <span>
+            J'ai un TJM de
+            <span class="averageDailyRate number">
+              <input
+                class="pristine"
+                type="tel"
+                placeholder="500"
+                maxlength="4"
+                style="min-width:4ch;width:4ch"
+              />
+            </span>
+            € sur une période de
+            <span class="days number">
+              <input
+                class="pristine"
+                type="tel"
+                placeholder="218"
+                maxlength="3"
+                style="min-width:4ch;width:4ch"
+              />
+            </span>
+          </span>
+          jours
+        </p>
+      </section>
+
+      <section class="result">[Result]</section>
+    </main>
+  </body>
+  <script>
+    {
+      console.log(`
+  ____  _   _  ___  ____   ___
+ / ___|| | | |/ _ \\|  _ \\ / _ \\
+ \\___ \\| |_| | | | | | | | | | |
+  ___) |  _  | |_| | |_| | |_| |
+ |____/|_| |_|\\___/|____/ \\___/
+
+ mail: recrutement@shodo.io
+`);
+
+      const { dispatch, connect } = useStore({
+        experience: 0,
+        averageDailyRate: 0,
+        salary: 0,
+        days: 0
+      });
+
+      connect(state => console.log("state", state));
+      connect(resultComponent(document.querySelector(".result")));
+
+      numberFieldComponent(document.querySelector(".experience"), experience =>
+        dispatch({ experience })
+      );
+      numberFieldComponent(document.querySelector(".salary"), salary =>
+        dispatch({ salary })
+      );
+      numberFieldComponent(
+        document.querySelector(".averageDailyRate"),
+        averageDailyRate => dispatch({ averageDailyRate: averageDailyRate })
+      );
+      numberFieldComponent(document.querySelector(".days"), days =>
+        dispatch({ days })
+      );
+
+      function compute({ experience, days, averageDailyRate, salary }) {
+        return {
+          salary: getSalary(),
+          paidTimeOff: getPaidTimeOff(),
+          learning: 5000,
+          welcomeBonus: 1500
+        };
+
+        function getSalary() {
+          const newSalary =
+            averageDailyRate * days - getMarginThreshold(experience);
+          return {
+            value: newSalary,
+            variation: ((newSalary - salary) / salary) * 100
+          };
+
+          function getMarginThreshold(experience) {
+            return experience <= 7 ? 30000 : 250000;
+          }
+        }
+
+        function getPaidTimeOff() {
+          const week = 5;
+
+          return {
+            additionalDays: getAdditonalDays(),
+            destaffing: 5,
+            paidTimeOff: week * 5,
+            rtt: 10,
+            seniorityTimeOff: 1
+          };
+
+          function getAdditonalDays() {
+            if (experience <= 3) return week;
+            if (experience <= 7) return week * 1.5;
+            return week * 2;
+          }
+        }
+      }
+
+      function resultComponent(element) {
+        return state => {
+          const result = compute(state);
+
+          const sign = result.salary.variation > 0 ? "+" : "";
+
+          element.innerHTML = `
+        <ul class="test">
+        <li>brut annuel <strong>${result.salary.value}€
+    <span style="color:var(${sign == "+" ? "--color-success" : ""})">
+    ${sign}${result.salary.variation.toFixed(2)}%</span></strong></li>
+        </ul>`;
+        };
+      }
+
+      function numberFieldComponent(element, dispatch) {
+        const input = element.querySelector("input");
+
+        input.addEventListener("beforeinput", event => {
+          if (event.data == null) {
+            return;
+          }
+          const nextValue = `${event.data}${event.target.value}`;
+          if (nextValue == "0" || isNaN(nextValue)) {
+            event.preventDefault();
+          }
+        });
+
+        input.addEventListener("keyup", event => {
+          if (event.target.value.length > 0) {
+            input.classList.remove("pristine");
+            input.style.width = event.target.value.length + 1 + "ch";
+          } else {
+            input.classList.add("pristine");
+            input.style.width = input.placeholder.length + 1 + "ch";
+          }
+          dispatch(event.target.value);
+        });
+      }
+
+      function useStore(init) {
+        let state = init;
+        const dispatch = s => {
+          state = { ...state, ...s };
+          for (let i = 0; i < listeners.length; i++) {
+            listeners[i](state);
+          }
+        };
+
+        let listeners = [];
+        const connect = listener => listeners.push(listener);
+
+        return { dispatch, connect };
+      }
+    }
+  </script>
+</html>
