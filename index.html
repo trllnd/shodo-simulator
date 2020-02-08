@@ -22,13 +22,10 @@
           1rem + 2px + 2px + 2px
             /* 1char's height + bottom border + top border + some space */
         );
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
       }
 
       p {
-        margin: var(--margin);
+        margin: var(--margin) 0;
       }
 
       input {
@@ -43,7 +40,7 @@
       }
 
       main {
-        margin: var(--margin);
+        margin: var(--margin) 0;
       }
 
       .number {
@@ -69,13 +66,47 @@
       }
 
       .result {
-        margin: var(--margin);
-        display: flex;
-        justify-content: center;
+        padding: var(--margin) 0;
+        border-top: 1px dashed;
       }
       .result ul {
         margin: 0;
         padding: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .result ul li {
+        animation-name: animateIn;
+        animation-duration: 0.32s;
+        animation-delay: calc(var(--animation-order) * 0.32s);
+        animation-fill-mode: both;
+        animation-timing-function: ease-in-out;
+        display: flex;
+      }
+      .result ul li .label,
+      .result ul li .value {
+        flex: 1;
+        margin: 0 4px;
+      }
+      .result ul li .label {
+        text-align: end;
+      }
+      .result ul li + li {
+        margin-top: 8px;
+      }
+      .result ul .apply {
+        text-align: center;
+        display: block;
+      }
+
+      @keyframes animateIn {
+        0% {
+          opacity: 0;
+        }
+        100% {
+          opacity: 1;
+        }
       }
     </style>
   </head>
@@ -134,78 +165,94 @@
         </p>
       </section>
 
-      <section class="result">[Result]</section>
+      <section class="result" />
     </main>
   </body>
   <script>
     {
-      console.log(`
-  ____  _   _  ___  ____   ___
- / ___|| | | |/ _ \\|  _ \\ / _ \\
- \\___ \\| |_| | | | | | | | | | |
-  ___) |  _  | |_| | |_| | |_| |
- |____/|_| |_|\\___/|____/ \\___/
+      run();
 
- mail: recrutement@shodo.io
-`);
+      function run() {
+        console.log(`
+      ____  _   _  ___  ____   ___
+     / ___|| | | |/ _ \\|  _ \\ / _ \\
+     \\___ \\| |_| | | | | | | | | | |
+      ___) |  _  | |_| | |_| | |_| |
+     |____/|_| |_|\\___/|____/ \\___/
 
-      const { dispatch, connect } = useStore({
-        experience: 0,
-        averageDailyRate: 0,
-        salary: 0,
-        days: 0
-      });
+     mail: recrutement@shodo.io
+    `);
 
-      connect(state => console.log("state", state));
-      connect(resultComponent(document.querySelector(".result")));
+        const { dispatch, connect } = useStore({
+          experience: 0,
+          averageDailyRate: 0,
+          salary: 0,
+          days: 0
+        });
 
-      numberFieldComponent(document.querySelector(".experience"), experience =>
-        dispatch({ experience })
-      );
-      numberFieldComponent(document.querySelector(".salary"), salary =>
-        dispatch({ salary })
-      );
-      numberFieldComponent(
-        document.querySelector(".averageDailyRate"),
-        averageDailyRate => dispatch({ averageDailyRate: averageDailyRate })
-      );
-      numberFieldComponent(document.querySelector(".days"), days =>
-        dispatch({ days })
-      );
+        connect(state => console.log("state", state));
+        connect(resultComponent(document.querySelector(".result")));
+
+        numberFieldComponent(
+          document.querySelector(".experience"),
+          experience => dispatch({ experience })
+        );
+        numberFieldComponent(document.querySelector(".salary"), salary =>
+          dispatch({ salary })
+        );
+        numberFieldComponent(
+          document.querySelector(".averageDailyRate"),
+          averageDailyRate => dispatch({ averageDailyRate: averageDailyRate })
+        );
+        numberFieldComponent(document.querySelector(".days"), days =>
+          dispatch({ days })
+        );
+      }
 
       function compute({ experience, days, averageDailyRate, salary }) {
+        if (!experience || !days || !averageDailyRate || !salary) {
+          return null;
+        }
+
         return {
           salary: getSalary(),
-          paidTimeOff: getPaidTimeOff(),
-          learning: 5000,
-          welcomeBonus: 1500
+          days: getDays(),
+          learning: { value: euro(5000) },
+          welcomeBonus: { value: euro(1500) }
         };
 
         function getSalary() {
+          const employerCharge = 1.42;
+
           const newSalary =
-            averageDailyRate * days - getMarginThreshold(experience);
+            (averageDailyRate * days) / employerCharge -
+            getMarginThreshold(experience);
           return {
-            value: newSalary,
-            variation: ((newSalary - salary) / salary) * 100
+            value: euro(newSalary),
+            variation: (newSalary - salary) / salary
           };
 
           function getMarginThreshold(experience) {
-            return experience <= 7 ? 30000 : 250000;
+            return experience <= 7 ? 30000 : 25000;
           }
         }
 
-        function getPaidTimeOff() {
+        function getDays() {
           const week = 5;
 
+          const normalPaidLeave = week * 5;
+          const additionalDays = getAdditionalDays();
           return {
-            additionalDays: getAdditonalDays(),
             destaffing: 5,
-            paidTimeOff: week * 5,
-            rtt: 10,
+            paidLeave: {
+              value: normalPaidLeave + additionalDays,
+              variation: additionalDays / normalPaidLeave
+            },
+            rtt: { value: 10 },
             seniorityTimeOff: 1
           };
 
-          function getAdditonalDays() {
+          function getAdditionalDays() {
             if (experience <= 3) return week;
             if (experience <= 7) return week * 1.5;
             return week * 2;
@@ -216,16 +263,44 @@
       function resultComponent(element) {
         return state => {
           const result = compute(state);
+          if (result === null) {
+            return;
+          }
 
-          const sign = result.salary.variation > 0 ? "+" : "";
+          const lis = [
+            li("brut annuel", result.salary),
+            li("jours de congés", result.days.paidLeave),
+            li("bonus d'arrivée", result.welcomeBonus),
+            li("bugdet formation", result.learning),
+            li("jours de rtt", result.days.rtt),
+            apply
+          ].map((f, i) => f(i));
 
-          element.innerHTML = `
-        <ul class="test">
-        <li>brut annuel <strong>${result.salary.value}€
-    <span style="color:var(${sign == "+" ? "--color-success" : ""})">
-    ${sign}${result.salary.variation.toFixed(2)}%</span></strong></li>
-        </ul>`;
+          element.innerHTML = `<ul class="test">${lis.join(``)}</ul>`;
         };
+
+        function apply(key) {
+          return `<li class="apply" style="--animation-order:${key};"><strong><a href="mailto:recrutement@shodo.io" >Je postule !</a></strong></li>`;
+        }
+
+        function li(label, { value, variation }) {
+          return key => {
+            let v = "";
+
+            if (variation) {
+              const sign = variation > 0 ? "+" : "";
+              const color = sign == "+" ? "--color-success" : "";
+              v =
+                `<span style="color:var(${color})"> ` +
+                `${sign}${percent(variation)}</span>`;
+            }
+
+            return (
+              `<li style="--animation-order:${key};"><span class="label">${label}</span> ` +
+              `<strong class="value">${value}${v}</strong></li>`
+            );
+          };
+        }
       }
 
       function numberFieldComponent(element, dispatch) {
@@ -266,6 +341,19 @@
         const connect = listener => listeners.push(listener);
 
         return { dispatch, connect };
+      }
+
+      function euro(value) {
+        return value.toLocaleString("fr", {
+          style: "currency",
+          currency: "EUR"
+        });
+      }
+      function percent(value) {
+        return value.toLocaleString("fr", {
+          style: "percent",
+          minimumFractionDigits: 2
+        });
       }
     }
   </script>
