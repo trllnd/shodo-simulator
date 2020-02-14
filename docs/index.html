@@ -16,7 +16,7 @@
         display: flex;
         justify-content: center;
       }
-      
+
       body {
         margin: 0;
         max-width: 80ch;
@@ -93,8 +93,11 @@
         flex: 1;
         margin: 0 4px;
       }
-      .result ul li .label {
+      .result ul li .value {
         text-align: end;
+      }
+      .result ul li .label {
+        text-align: start;
       }
       .result ul li + li {
         margin-top: 8px;
@@ -155,7 +158,7 @@
               />
             </span>
             € sur une période de
-            <span class="days number">
+            <span class="workingDays number">
               <input
                 class="pristine"
                 type="tel"
@@ -174,9 +177,10 @@
   </body>
   <script>
     {
-      run();
+      main();
 
-      function run() {
+      /* Application ------------------------------------------------------------------------------------------------ */
+      function main() {
         console.log(`
       ____  _   _  ___  ____   ___
      / ___|| | | |/ _ \\|  _ \\ / _ \\
@@ -187,85 +191,25 @@
      mail: recrutement@shodo.io
     `);
 
-        const { dispatch, connect } = useStore({
-          experience: 0,
-          averageDailyRate: 0,
-          salary: 0,
-          days: 0
+        const { run, connect } = useStore({
+          experience: 7,
+          averageDailyRate: 650,
+          salary: 65000,
+          workingDays: 218
         });
 
-        connect(state => console.log("state", state));
+        connect(() => state => console.log("state", state));
         connect(resultComponent(document.querySelector(".result")));
+        connect(numberFieldComponent("experience"));
+        connect(numberFieldComponent("salary"));
+        connect(numberFieldComponent("averageDailyRate"));
+        connect(numberFieldComponent("workingDays"));
 
-        numberFieldComponent(
-          document.querySelector(".experience"),
-          experience => dispatch({ experience })
-        );
-        numberFieldComponent(document.querySelector(".salary"), salary =>
-          dispatch({ salary })
-        );
-        numberFieldComponent(
-          document.querySelector(".averageDailyRate"),
-          averageDailyRate => dispatch({ averageDailyRate: averageDailyRate })
-        );
-        numberFieldComponent(document.querySelector(".days"), days =>
-          dispatch({ days })
-        );
-      }
-
-      function compute({ experience, days, averageDailyRate, salary }) {
-        if (!experience || !days || !averageDailyRate || !salary) {
-          return null;
-        }
-
-        return {
-          salary: getSalary(),
-          days: getDays(),
-          learning: { value: euro(5000) },
-          welcomeBonus: { value: euro(1500) }
-        };
-
-        function getSalary() {
-          const employerCharge = 1.42;
-
-          const newSalary =
-            (averageDailyRate * days) / employerCharge -
-            getMarginThreshold(experience);
-          return {
-            value: euro(newSalary),
-            variation: (newSalary - salary) / salary
-          };
-
-          function getMarginThreshold(experience) {
-            return experience <= 7 ? 30000 : 25000;
-          }
-        }
-
-        function getDays() {
-          const week = 5;
-
-          const normalPaidLeave = week * 5;
-          const additionalDays = getAdditionalDays();
-          return {
-            destaffing: 5,
-            paidLeave: {
-              value: normalPaidLeave + additionalDays,
-              variation: additionalDays / normalPaidLeave
-            },
-            rtt: { value: 10 },
-            seniorityTimeOff: 1
-          };
-
-          function getAdditionalDays() {
-            if (experience <= 3) return week;
-            if (experience <= 7) return week * 1.5;
-            return week * 2;
-          }
-        }
+        run();
       }
 
       function resultComponent(element) {
-        return state => {
+        return () => state => {
           const result = compute(state);
           if (result === null) {
             return;
@@ -273,10 +217,11 @@
 
           const lis = [
             li("brut annuel", result.salary),
-            li("jours de congés", result.days.paidLeave),
+            li("de congés", result.vacationDays.paidLeave),
+            li("mutuelle 100%", result.healthInsurance),
             li("bonus d'arrivée", result.welcomeBonus),
             li("bugdet formation", result.learning),
-            li("jours de rtt", result.days.rtt),
+            li("de rtt", result.vacationDays.rtt),
             apply
           ].map((f, i) => f(i));
 
@@ -284,7 +229,7 @@
         };
 
         function apply(key) {
-          return `<li class="apply" style="--animation-order:${key};"><strong><a href="mailto:recrutement@shodo.io" >Je postule !</a></strong></li>`;
+          // return `<li class="apply" style="--animation-order:${key};"><strong><a href="mailto:recrutement@shodo.io" >Je postule !</a></strong></li>`;
         }
 
         function li(label, { value, variation }) {
@@ -300,40 +245,49 @@
             }
 
             return (
-              `<li style="--animation-order:${key};"><span class="label">${label}</span> ` +
-              `<strong class="value">${value}${v}</strong></li>`
+              `<li style="--animation-order:${key};"><strong class="value">${value}${v}</strong> ` +
+              `<span class="label">${label}</span></li>`
             );
           };
         }
       }
 
-      function numberFieldComponent(element, dispatch) {
-        const input = element.querySelector("input");
+      function numberFieldComponent(value) {
+        const input = document
+          .querySelector(`.${value}`)
+          .querySelector("input");
 
-        input.addEventListener("beforeinput", event => {
-          if (event.data == null) {
-            return;
-          }
-          const nextValue = `${event.data}${event.target.value}`;
-          if (nextValue == "0" || isNaN(nextValue)) {
-            event.preventDefault();
-          }
-        });
+        return dispatch => {
+          input.addEventListener("beforeinput", event => {
+            if (event.data == null) {
+              return;
+            }
+            const nextValue = `${event.data}${event.target.value}`;
+            if (nextValue == "0" || isNaN(nextValue)) {
+              event.preventDefault();
+            }
+          });
 
-        input.addEventListener("keyup", event => {
-          if (event.target.value.length > 0) {
-            input.classList.remove("pristine");
-            input.style.width = event.target.value.length + 1 + "ch";
-          } else {
-            input.classList.add("pristine");
-            input.style.width = input.placeholder.length + 1 + "ch";
-          }
-          dispatch(event.target.value);
-        });
+          input.addEventListener("keyup", event => {
+            if (event.target.value.length > 0) {
+              input.classList.remove("pristine");
+              input.style.width = event.target.value.length + 1 + "ch";
+            } else {
+              input.classList.add("pristine");
+              input.style.width = input.placeholder.length + 1 + "ch";
+            }
+            dispatch({ [value]: event.target.value });
+          });
+
+          return state => {
+            if (state[value] != null) input.value = state[value];
+          };
+        };
       }
 
+      /* Infra ------------------------------------------------------------------------------------------------------ */
       function useStore(init) {
-        let state = init;
+        let state = {};
         const dispatch = s => {
           state = { ...state, ...s };
           for (let i = 0; i < listeners.length; i++) {
@@ -342,9 +296,67 @@
         };
 
         let listeners = [];
-        const connect = listener => listeners.push(listener);
+        const connect = listener => listeners.push(listener(dispatch));
 
-        return { dispatch, connect };
+        const run = () => dispatch(init);
+
+        return { run, connect };
+      }
+
+      /* Domain ----------------------------------------------------------------------------------------------------- */
+      function compute({ experience, workingDays, averageDailyRate, salary }) {
+        if (!experience || !workingDays || !averageDailyRate || !salary) {
+          return null;
+        }
+
+        return {
+          salary: getSalary(),
+          vacationDays: getVacationDays(),
+          learning: { value: euro(5000) },
+          welcomeBonus: { value: euro(1500) },
+          healthInsurance: { value: euro(12 * 140) }
+        };
+
+        function getSalary() {
+          const employerCharge = 1.42;
+
+          const restaurantTickets = 9.2 * 0.4 * workingDays;
+
+          const newSalary =
+            (averageDailyRate * workingDays) / employerCharge -
+            getMarginThreshold(experience) -
+            restaurantTickets;
+          return {
+            value: euro(newSalary),
+            variation: (newSalary - salary) / salary
+          };
+
+          function getMarginThreshold(experience) {
+            return experience <= 7 ? 30000 : 25000;
+          }
+        }
+
+        function getVacationDays() {
+          const week = 5;
+
+          const normalPaidLeave = week * 5;
+          const additionalDays = getAdditionalDays();
+          return {
+            destaffing: { value: days(15) },
+            paidLeave: {
+              value: days(normalPaidLeave + additionalDays),
+              variation: additionalDays / normalPaidLeave
+            },
+            rtt: { value: days(10) },
+            seniorityTimeOff: 1
+          };
+
+          function getAdditionalDays() {
+            if (experience <= 3) return week;
+            if (experience <= 7) return week * 1.5;
+            return week * 2;
+          }
+        }
       }
 
       function euro(value) {
@@ -353,11 +365,20 @@
           currency: "EUR"
         });
       }
+
       function percent(value) {
         return value.toLocaleString("fr", {
           style: "percent",
           minimumFractionDigits: 2
         });
+      }
+
+      function days(value) {
+        return (
+          value.toLocaleString("fr", {
+            minimumFractionDigits: 2
+          }) + " jours"
+        );
       }
     }
   </script>
