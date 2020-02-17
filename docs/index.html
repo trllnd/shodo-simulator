@@ -191,21 +191,21 @@
      mail: recrutement@shodo.io
     `);
 
-        const { run, connect } = useStore({
+        const { dispatch, subscribe } = useStore();
+
+        subscribe(() => state => console.log("state", state));
+        subscribe(resultComponent(document.querySelector(".result")));
+        subscribe(numberFieldComponent("experience"));
+        subscribe(numberFieldComponent("salary"));
+        subscribe(numberFieldComponent("averageDailyRate"));
+        subscribe(numberFieldComponent("workingDays"));
+
+        dispatch({
           experience: 7,
           averageDailyRate: 650,
           salary: 65000,
           workingDays: 218
         });
-
-        connect(() => state => console.log("state", state));
-        connect(resultComponent(document.querySelector(".result")));
-        connect(numberFieldComponent("experience"));
-        connect(numberFieldComponent("salary"));
-        connect(numberFieldComponent("averageDailyRate"));
-        connect(numberFieldComponent("workingDays"));
-
-        run();
       }
 
       function resultComponent(element) {
@@ -286,7 +286,7 @@
       }
 
       /* Infra ------------------------------------------------------------------------------------------------------ */
-      function useStore(init) {
+      function useStore() {
         let state = {};
         const dispatch = s => {
           state = { ...state, ...s };
@@ -296,11 +296,9 @@
         };
 
         let listeners = [];
-        const connect = listener => listeners.push(listener(dispatch));
+        const subscribe = listener => listeners.push(listener(dispatch));
 
-        const run = () => dispatch(init);
-
-        return { run, connect };
+        return { dispatch, subscribe };
       }
 
       /* Domain ----------------------------------------------------------------------------------------------------- */
